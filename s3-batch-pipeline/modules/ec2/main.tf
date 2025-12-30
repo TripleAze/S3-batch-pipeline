@@ -1,3 +1,16 @@
+data "http" "github_meta" {
+  url = "https://api.github.com/meta"
+  request_headers = {
+    Accept = "application/json"
+  }
+}
+
+locals {
+  github_hooks_cidrs = jsondecode(data.http.github_meta.response_body).hooks
+  # Filter for IPv4 only to avoid validation errors with cidr_ipv4
+  github_hooks_ipv4 = [for cidr in local.github_hooks_cidrs : cidr if !can(regex(":", cidr))]
+}
+
 resource "aws_security_group" "jenkins_sg" {
   name        = "${var.environment}-jenkins-sg"
   description = "Security group for Jenkins EC2"
@@ -23,7 +36,7 @@ resource "aws_vpc_security_group_ingress_rule" "jenkins_web" {
   from_port         = 8080
   to_port           = 8080
   ip_protocol       = "tcp"
-  cidr_ipv4         = var.allowed_cidr
+  cidr_ipv4         = "0.0.0.0/0"
   description       = "Jenkins Web UI"
 }
 
@@ -54,10 +67,14 @@ resource "aws_vpc_security_group_ingress_rule" "icmp" {
   description       = "ICMP (Ping)"
 }
 
-resource "aws_vpc_security_group_egress_rule" "allow_all_outbound" {
+resource "aws_vpc_security_group_ingress_rule" "github_webhooks" {
+  for_each          = toset(local.github_hooks_ipv4)
   security_group_id = aws_security_group.jenkins_sg.id
-  ip_protocol       = "-1"
-  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 8080
+  to_port           = 8080
+  ip_protocol       = "tcp"
+  cidr_ipv4         = each.value
+  description       = "GitHub Webhook"
 }
 
 resource "aws_iam_instance_profile" "jenkins_profile" {
