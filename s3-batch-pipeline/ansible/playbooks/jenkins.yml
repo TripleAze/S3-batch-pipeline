@@ -1,0 +1,46 @@
+---
+- name: Configure Jenkins EC2
+  hosts: jenkins
+  become: true
+
+  pre_tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+    
+    - name: Install dependencies (Java, Unzip, Curl)
+      apt:
+        name:
+          - openjdk-17-jdk
+          - unzip
+          - curl
+        state: present
+
+    - name: Download AWS CLI v2
+      get_url:
+        url: "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
+        dest: "/tmp/awscliv2.zip"
+
+    - name: Unzip AWS CLI v2
+      unarchive:
+        src: "/tmp/awscliv2.zip"
+        dest: "/tmp"
+        remote_src: yes
+
+    - name: Install AWS CLI v2
+      command: "/tmp/aws/install --update"
+
+    - name: Clean up old Jenkins repository files
+      file:
+        path: /etc/apt/sources.list.d/jenkins.list
+        state: absent
+
+  roles:
+    - geerlingguy.jenkins
+
+  post_tasks:
+    - name: Ensure Jenkins is running
+      service:
+        name: jenkins
+        state: started
+        enabled: true

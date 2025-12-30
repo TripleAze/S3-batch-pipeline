@@ -1,0 +1,129 @@
+pipeline {
+    agent any
+
+    environment {
+        AWS_REGION = 'eu-west-2'
+    }
+
+    parameters {
+        string(name: 'SOURCE_BUCKET', defaultValue: 'state-bucket-abu-source-2025', description: 'Source S3 bucket name')
+        string(name: 'DESTINATION_BUCKET', defaultValue: 'state-bucket-abu-destination-2025', description: 'Destination S3 bucket name')
+        string(name: 'MANIFEST_KEY', defaultValue: 'manifest.csv', description: 'S3 key for manifest CSV')
+        string(name: 'PIPELINE_ROLE_ARN', defaultValue: 'arn:aws:iam::272117124614:role/prod-PipelineRole', description: 'Pipeline IAM role ARN')
+        string(name: 'S3_BATCH_ROLE_ARN', defaultValue: 'arn:aws:iam::272117124614:role/prod-S3BatchOperationsRole', description: 'S3 Batch Operations role ARN')
+        string(name: 'ACCOUNT_ID', defaultValue: '272117124614', description: 'Target AWS account ID')
+    }
+
+    stages {
+        stage('Assume Pipeline Role') {
+            steps {
+                script {
+                    echo "Using Permanent IAM credentials to assume pipeline role..."
+            
+                    // Only use the AWS Credentials ID now
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-prod-credentials']]) {
+                        def creds = sh(
+                            script: """
+                                aws sts assume-role \
+                                    --role-arn ${params.PIPELINE_ROLE_ARN} \
+                                    --role-session-name JenkinsPipelineSession \
+                                    --region ${AWS_REGION} \
+                                    --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
+                                    --output text
+                            """,
+                            returnStdout: true
+                        ).trim().split()
+                        
+                        // The ROLE you are assuming WILL provide a temporary session token
+                        env.AWS_ACCESS_KEY_ID = creds[0]
+                        env.AWS_SECRET_ACCESS_KEY = creds[1]
+                        env.AWS_SESSION_TOKEN = creds[2]
+                    }
+                }
+            }
+        }
+
+        stage('Create S3 Batch Job') {
+            steps {
+                script {
+                    echo "Fetching manifest ETag..."
+                    def etag = sh(
+                        script: "aws s3api head-object --bucket ${params.SOURCE_BUCKET} --key ${params.MANIFEST_KEY} --query 'ETag' --output text",
+                        returnStdout: true
+                    ).trim().replace('"', '')
+
+                    echo "Submitting S3 Batch Operations job..."
+                    
+                    def batchJobId = sh(
+                        script: """
+                        aws s3control create-job \
+                        --account-id ${params.ACCOUNT_ID} \
+                        --priority 10 \
+                        --no-confirmation-required \
+                        --operation '{"S3PutObjectCopy": {"TargetResource": "arn:aws:s3:::${params.DESTINATION_BUCKET}"}}' \
+                        --report '{"Bucket":"arn:aws:s3:::${params.DESTINATION_BUCKET}","Format":"Report_CSV_20180820","Enabled":true,"Prefix":"reports/","ReportScope":"AllTasks"}' \
+                        --manifest '{"Spec":{"Format":"S3BatchOperations_CSV_20180820","Fields":["Bucket","Key"]},"Location":{"ObjectArn":"arn:aws:s3:::${params.SOURCE_BUCKET}/${params.MANIFEST_KEY}","ETag":"${etag}"}}' \
+                        --role-arn ${params.S3_BATCH_ROLE_ARN} \
+                        --region ${AWS_REGION} \
+                        --query 'JobId' --output text
+                        """,
+                        returnStdout: true
+                    ).trim()
+
+                    env.BATCH_JOB_ID = batchJobId
+                    echo "S3 Batch Job submitted with ID: ${env.BATCH_JOB_ID}"
+                }
+            }
+        }
+
+        stage('Monitor Batch Job') {
+            steps {
+                script {
+                    echo "Monitoring S3 Batch Job..."
+                    def status = ''
+                    timeout(time: 30, unit: 'MINUTES') {
+                        waitUntil {
+                            status = sh(
+                                script: """aws s3control describe-job \
+                                --account-id ${params.ACCOUNT_ID} \
+                                --job-id ${env.BATCH_JOB_ID} \
+                                --region ${AWS_REGION} \
+                                --query 'Job.Status' --output text""",
+                                returnStdout: true
+                            ).trim()
+                            
+                            echo "Current Job Status: ${status}"
+                            
+                            if (status in ['Complete', 'Failed', 'Cancelled']) {
+                                return true
+                            } else {
+                                // Wait 30 seconds before the next check
+                                sleep(30) 
+                                return false
+                            }
+                        }
+                    }
+
+                    if (status != 'Complete') {
+                        error "S3 Batch Job failed with status: ${status}"
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                echo "Cleaning up environment variables"
+                env.AWS_ACCESS_KEY_ID = ''
+                env.AWS_SECRET_ACCESS_KEY = ''
+                env.AWS_SESSION_TOKEN = ''
+            }
+        }
+        failure {
+            echo "Pipeline failed. Email skipped due to connection issues."
+            // mail to: 'aliyuabubakar8080@outlook.com' ... (Disabled for now)
+        }
+    }
+}

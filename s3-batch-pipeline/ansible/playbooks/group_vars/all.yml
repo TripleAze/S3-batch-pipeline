@@ -1,0 +1,17 @@
+---
+jenkins_prefer_lts: true
+jenkins_repo_url: "deb https://pkg.jenkins.io/debian-stable binary/"
+jenkins_repo_key_url: "https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key"
+jenkins_http_port: 8080
+jenkins_admin_username: "admin"
+jenkins_plugins:
+  - git
+  - pipeline-model-definition
+  - workflow-aggregator
+  - credentials-binding
+  - aws-credentials
+  - blueocean
+  - ssh-agent
+
+jenkins_java_package: openjdk-17-jdk
+jenkins_java_options: "-Djenkins.install.runSetupWizard=false"
