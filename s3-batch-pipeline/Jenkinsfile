@@ -20,7 +20,6 @@ pipeline {
                 script {
                     echo "Using Permanent IAM credentials to assume pipeline role..."
             
-                    // Only use the AWS Credentials ID now
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-prod-credentials']]) {
                         def creds = sh(
                             script: """
@@ -34,7 +33,6 @@ pipeline {
                             returnStdout: true
                         ).trim().split()
                         
-                        // The ROLE you are assuming WILL provide a temporary session token
                         env.AWS_ACCESS_KEY_ID = creds[0]
                         env.AWS_SECRET_ACCESS_KEY = creds[1]
                         env.AWS_SESSION_TOKEN = creds[2]
