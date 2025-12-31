@@ -12,6 +12,7 @@ jenkins_plugins:
   - aws-credentials
   - blueocean
   - ssh-agent
+  - github
 
 jenkins_java_package: openjdk-17-jdk
 jenkins_java_options: "-Djenkins.install.runSetupWizard=false"
