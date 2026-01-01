@@ -155,3 +155,5 @@ resource "aws_iam_role_policy_attachment" "s3_batch_attach" {
   role       = aws_iam_role.s3_batch_role.name
   policy_arn = aws_iam_policy.s3_batch_policy.arn
 }
+
+##########################
