@@ -36,7 +36,7 @@ resource "aws_vpc_security_group_ingress_rule" "jenkins_web" {
   from_port         = 8080
   to_port           = 8080
   ip_protocol       = "tcp"
-  cidr_ipv4         = "0.0.0.0/0"
+  cidr_ipv4         = var.allowed_cidr
   description       = "Jenkins Web UI"
 }
 
