@@ -50,5 +50,5 @@ variable "manifest_s3_key" {
 variable "allowed_cidr" {
   description = "CIDR block allowed to access Jenkins"
   type        = string
-  default     = "197.210.76.212/32"
+  default     = "102.91.72.199/32"
 }

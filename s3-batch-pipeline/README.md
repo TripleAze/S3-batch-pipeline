@@ -15,10 +15,12 @@ This project automates large-scale S3 object operations using AWS S3 Batch Opera
 
 ### **Key Features**
 - 🚀 **Fully Automated**: Push to GitHub → Webhook → Jenkins → S3 Batch Job
-- 🔒 **Secure by Default**: Dynamic GitHub IP whitelisting, least-privilege IAM roles
+- 🔒 **Secure by Default**: Dynamic GitHub IP whitelisting, least-privilege IAM roles, explicit egress rules
 - 📦 **Infrastructure as Code**: Complete Terraform modules for reproducible deployments
 - 🔧 **Automated Configuration**: Ansible playbooks for consistent server setup
 - 📊 **Production Ready**: Comprehensive error handling, monitoring, and reporting
+- 💾 **Data Persistence**: Dedicated EBS volume for Jenkins data with automated daily snapshots
+- 🔄 **Disaster Recovery**: 7-day snapshot retention, stateless EC2 for quick recovery
 
 ---
 
@@ -253,16 +255,61 @@ pipeline {
 - High packet loss (85%+)
 - Connection hangs during banner exchange
 
-**Solution**: Replace the instance via Terraform:
+**Original Solution** (Not Recommended):
 ```bash
+# This works but loses all Jenkins data
 terraform apply -var-file=envs/prod.tfvars -replace="module.ec2.aws_instance.jenkins"
 ```
 
-Then re-run Ansible to restore configuration:
-```bash
-# Update hosts.ini with new IP
-ansible-playbook -i inventories/prod/hosts.ini playbooks/jenkins.yml
+**Production Solution** (Implemented):
+
+We implemented a **dedicated EBS volume for Jenkins data** (`/var/lib/jenkins`) to enable stateless EC2 instances:
+
+**Benefits**:
+- ✅ Jenkins data survives instance replacement
+- ✅ Jobs, pipelines, credentials, and build history preserved
+- ✅ Automated daily snapshots via AWS DLM (Data Lifecycle Manager)
+- ✅ 7-day snapshot retention for disaster recovery
+- ✅ Quick recovery: Stop instance → Detach volume → Attach to new instance
+
+**Implementation**:
+```hcl
+# Dedicated 20GB encrypted EBS volume
+resource "aws_ebs_volume" "jenkins_data" {
+  availability_zone = data.aws_subnet.selected.availability_zone
+  size              = 20
+  type              = "gp3"
+  encrypted         = true
+}
+
+# Automated daily snapshots
+resource "aws_dlm_lifecycle_policy" "jenkins_backup" {
+  description = "Daily snapshots of Jenkins data volume"
+  
+  schedule {
+    create_rule {
+      interval = 24
+      times    = ["03:00"]  # 3 AM UTC
+    }
+    
+    retain_rule {
+      count = 7  # Keep 7 daily snapshots
+    }
+  }
+}
 ```
+
+**Recovery Process** (if instance becomes unresponsive):
+```bash
+# 1. Note the EBS volume ID
+terraform output
+
+# 2. Replace the instance (volume auto-detaches and re-attaches)
+terraform apply -var-file=envs/prod.tfvars -replace="module.ec2.aws_instance.jenkins"
+
+# 3. Jenkins data is preserved - no Ansible re-run needed!
+```
+
 
 ---
 
@@ -310,6 +357,70 @@ resource "aws_vpc_security_group_ingress_rule" "github_webhooks" {
   description       = "GitHub Webhook"
 }
 ```
+
+---
+
+## 🏭 Production Improvements
+
+This project implements several production-grade patterns for reliability and disaster recovery:
+
+### **1. Stateless EC2 with Persistent EBS Volume**
+
+**Pattern**: Separate compute (EC2) from state (EBS)
+
+**Implementation**:
+- Dedicated 20GB encrypted gp3 EBS volume for `/var/lib/jenkins`
+- Auto-formatted and mounted via user_data script
+- Survives instance replacement
+
+**Benefits**:
+- Zero data loss during instance replacement
+- Quick recovery from instance failures
+- Simplified disaster recovery
+
+### **2. Automated Backup Strategy**
+
+**Pattern**: AWS Data Lifecycle Manager (DLM) for snapshots
+
+**Implementation**:
+```
+Daily snapshots at 3 AM UTC
+Retention: 7 days (rolling window)
+Automatic cleanup of old snapshots
+```
+
+**Cost**: ~$0.05/GB/month for snapshots (7 snapshots × 20GB = ~$7/month)
+
+### **3. Explicit Egress Rules**
+
+**Pattern**: Principle of least privilege for outbound traffic
+
+**Implementation**:
+```hcl
+HTTPS (443) → Package updates, AWS APIs
+HTTP (80)   → Package updates
+DNS (53)    → UDP and TCP for name resolution
+NTP (123)   → Time synchronization
+```
+
+**Benefits**:
+- Prevents data exfiltration
+- Limits attack surface
+- Compliance with security frameworks
+
+### **4. Disaster Recovery Procedure**
+
+**Scenario**: EC2 instance becomes unresponsive
+
+**Recovery Steps**:
+1. Terraform automatically detaches EBS volume
+2. Destroys unhealthy instance
+3. Creates new instance
+4. Re-attaches EBS volume with all Jenkins data
+5. Jenkins starts with all jobs, credentials, and history intact
+
+**RTO** (Recovery Time Objective): ~5 minutes  
+**RPO** (Recovery Point Objective): Last snapshot (max 24 hours)
 
 ---
 

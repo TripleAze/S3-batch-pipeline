@@ -68,25 +68,37 @@ graph TB
 ### 1. **Infrastructure Layer (Terraform)**
 
 #### **EC2 Module** (`modules/ec2/`)
-**Purpose**: Provisions Jenkins server with secure network configuration
+**Purpose**: Provisions Jenkins server with secure network configuration and persistent data storage
 
 **Resources**:
-- `aws_instance.jenkins`: Ubuntu 22.04 EC2 instance (t2.micro)
+- `aws_instance.jenkins`: Ubuntu 22.04 EC2 instance (t3.micro)
+- `aws_ebs_volume.jenkins_data`: 20GB encrypted gp3 volume for `/var/lib/jenkins`
+- `aws_volume_attachment.jenkins_data`: Attaches EBS volume to EC2
 - `aws_security_group.jenkins_sg`: Dynamic security group with GitHub IP whitelisting
 - `aws_iam_instance_profile.jenkins_profile`: IAM profile for Jenkins EC2
+- `aws_dlm_lifecycle_policy.jenkins_backup`: Automated daily snapshots
 
 **Key Features**:
+- **Stateless EC2 Pattern**: Jenkins data on separate EBS volume survives instance replacement
+- **Automated Backups**: Daily snapshots at 3 AM UTC, 7-day retention
 - **Dynamic GitHub IP Whitelisting**: Fetches current GitHub webhook IPs via HTTP API
-- **User Data Bootstrap**: Installs Python, Ansible, and Git on first boot
+- **User Data Bootstrap**: Formats/mounts EBS volume, installs Python, Ansible, Git
 - **Public IP Association**: Enables external access for webhooks
 
 **Security Group Rules**:
 ```hcl
+# Ingress
 Port 22   (SSH)    → User IP only
 Port 8080 (Jenkins)→ User IP + GitHub IPs (4 CIDR ranges)
 Port 80   (HTTP)   → User IP only
 Port 443  (HTTPS)  → User IP only
 ICMP      (Ping)   → User IP only
+
+# Egress (Explicit)
+Port 443  (HTTPS)  → 0.0.0.0/0 (AWS APIs, package updates)
+Port 80   (HTTP)   → 0.0.0.0/0 (package updates)
+Port 53   (DNS)    → 0.0.0.0/0 (UDP and TCP)
+Port 123  (NTP)    → 0.0.0.0/0 (time sync)
 ```
 
 #### **IAM Module** (`modules/iam/`)

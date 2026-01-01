@@ -45,3 +45,9 @@ variable "allowed_cidr" {
   type        = string
   description = "CIDR block allowed to access Jenkins"
 }
+
+variable "jenkins_data_volume_size" {
+  type        = number
+  default     = 20
+  description = "Size of the dedicated EBS volume for Jenkins data in GB"
+}
