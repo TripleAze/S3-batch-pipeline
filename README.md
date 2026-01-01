@@ -14,17 +14,17 @@ A production-ready, fully automated S3 Batch Operations pipeline orchestrated by
 This project automates large-scale S3 object operations using AWS S3 Batch Operations, triggered automatically via GitHub webhooks. It demonstrates infrastructure-as-code best practices, least-privilege security, and end-to-end automation.
 
 ### **Key Features**
-- 🚀 **Fully Automated**: Push to GitHub → Webhook → Jenkins → S3 Batch Job
-- 🔒 **Secure by Default**: Dynamic GitHub IP whitelisting, least-privilege IAM roles, explicit egress rules
-- 📦 **Infrastructure as Code**: Complete Terraform modules for reproducible deployments
-- 🔧 **Automated Configuration**: Ansible playbooks for consistent server setup
-- 📊 **Production Ready**: Comprehensive error handling, monitoring, and reporting
-- 💾 **Data Persistence**: Dedicated EBS volume for Jenkins data with automated daily snapshots
-- 🔄 **Disaster Recovery**: 7-day snapshot retention, stateless EC2 for quick recovery
+- **Fully Automated**: Push to GitHub → Webhook → Jenkins → S3 Batch Job
+- **Secure by Default**: Dynamic GitHub IP whitelisting, least-privilege IAM roles, explicit egress rules
+- **Infrastructure as Code**: Complete Terraform modules for reproducible deployments
+- **Automated Configuration**: Ansible playbooks for consistent server setup
+- **Production Ready**: Comprehensive error handling, monitoring, and reporting
+- **Data Persistence**: Dedicated EBS volume for Jenkins data with automated daily snapshots
+- **Disaster Recovery**: 7-day snapshot retention, stateless EC2 for quick recovery
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```mermaid
 graph TB
@@ -55,7 +55,7 @@ graph TB
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 s3-batch-pipeline/
@@ -76,7 +76,7 @@ s3-batch-pipeline/
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### **Prerequisites**
 - AWS Account with appropriate permissions
@@ -134,11 +134,11 @@ ansible-playbook -i inventories/prod/hosts.ini playbooks/jenkins.yml
    - **Repository URL**: `https://github.com/TripleAze/S3-batch-pipeline.git`
    - **Branch**: `*/ranch`
    - **Script Path**: `s3-batch-pipeline/Jenkinsfile`
-   - **Build Triggers**: ✅ GitHub hook trigger for GITScm polling
+   - **Build Triggers**: GitHub hook trigger for GITScm polling
 
 ---
 
-## 🛠️ Troubleshooting Guide
+## Troubleshooting Guide
 
 ### **Problem 1: Terraform Variable Prompts**
 **Error**: `terraform plan` prompts for `ami_id`
@@ -266,11 +266,11 @@ terraform apply -var-file=envs/prod.tfvars -replace="module.ec2.aws_instance.jen
 We implemented a **dedicated EBS volume for Jenkins data** (`/var/lib/jenkins`) to enable stateless EC2 instances:
 
 **Benefits**:
-- ✅ Jenkins data survives instance replacement
-- ✅ Jobs, pipelines, credentials, and build history preserved
-- ✅ Automated daily snapshots via AWS DLM (Data Lifecycle Manager)
-- ✅ 7-day snapshot retention for disaster recovery
-- ✅ Quick recovery: Stop instance → Detach volume → Attach to new instance
+- Jenkins data survives instance replacement
+- Jobs, pipelines, credentials, and build history preserved
+- Automated daily snapshots via AWS DLM (Data Lifecycle Manager)
+- 7-day snapshot retention for disaster recovery
+- Quick recovery: Stop instance → Detach volume → Attach to new instance
 
 **Implementation**:
 ```hcl
@@ -360,7 +360,7 @@ resource "aws_vpc_security_group_ingress_rule" "github_webhooks" {
 
 ---
 
-## 🏭 Production Improvements
+## Production Improvements
 
 This project implements several production-grade patterns for reliability and disaster recovery:
 
@@ -424,7 +424,7 @@ NTP (123)   → Time synchronization
 
 ---
 
-## 🔐 Security Best Practices
+## Security Best Practices
 
 ### **Implemented Security Measures**
 
@@ -450,7 +450,7 @@ NTP (123)   → Time synchronization
 
 ---
 
-## 📊 Monitoring & Logging
+## Monitoring & Logging
 
 ### **Jenkins Build Logs**
 - Access via Jenkins UI → Job → Console Output
