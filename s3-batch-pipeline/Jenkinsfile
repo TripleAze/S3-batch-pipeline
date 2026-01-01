@@ -5,6 +5,10 @@ pipeline {
         AWS_REGION = 'eu-west-2'
     }
 
+    triggers {
+        githubPush()
+    }
+
     parameters {
         string(name: 'SOURCE_BUCKET', defaultValue: 'state-bucket-abu-source-2025', description: 'Source S3 bucket name')
         string(name: 'DESTINATION_BUCKET', defaultValue: 'state-bucket-abu-destination-2025', description: 'Destination S3 bucket name')
