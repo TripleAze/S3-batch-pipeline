@@ -1,0 +1,1 @@
+../s3-batch-pipeline/ARCHITECTURE.md
