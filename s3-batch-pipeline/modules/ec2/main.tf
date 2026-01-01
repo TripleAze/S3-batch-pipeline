@@ -27,7 +27,7 @@ resource "aws_vpc_security_group_ingress_rule" "ssh" {
   from_port         = 22
   to_port           = 22
   ip_protocol       = "tcp"
-  cidr_ipv4         = "0.0.0.0/0"
+  cidr_ipv4         = var.allowed_cidr
   description       = "SSH"
 }
 
@@ -36,8 +36,8 @@ resource "aws_vpc_security_group_ingress_rule" "jenkins_web" {
   from_port         = 8080
   to_port           = 8080
   ip_protocol       = "tcp"
-  cidr_ipv4         = "0.0.0.0/0"
-  description       = "Jenkins Web UI"
+  cidr_ipv4         = var.allowed_cidr
+  description       = "Jenkins Web UI (Admin Access)"
 }
 
 resource "aws_vpc_security_group_ingress_rule" "http" {
@@ -45,7 +45,7 @@ resource "aws_vpc_security_group_ingress_rule" "http" {
   from_port         = 80
   to_port           = 80
   ip_protocol       = "tcp"
-  cidr_ipv4         = "0.0.0.0/0"
+  cidr_ipv4         = var.allowed_cidr
   description       = "HTTP"
 }
 
@@ -54,7 +54,7 @@ resource "aws_vpc_security_group_ingress_rule" "https" {
   from_port         = 443
   to_port           = 443
   ip_protocol       = "tcp"
-  cidr_ipv4         = "0.0.0.0/0"
+  cidr_ipv4         = var.allowed_cidr
   description       = "HTTPS"
 }
 
@@ -63,7 +63,7 @@ resource "aws_vpc_security_group_ingress_rule" "icmp" {
   ip_protocol       = "icmp"
   from_port         = -1
   to_port           = -1
-  cidr_ipv4         = "0.0.0.0/0"
+  cidr_ipv4         = var.allowed_cidr
   description       = "ICMP (Ping)"
 }
 
