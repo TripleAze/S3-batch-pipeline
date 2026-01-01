@@ -9,7 +9,7 @@ A production-ready, fully automated S3 Batch Operations pipeline orchestrated by
 
 ---
 
-## 🎯 Project Overview
+## Project Overview
 
 This project automates large-scale S3 object operations using AWS S3 Batch Operations, triggered automatically via GitHub webhooks. It demonstrates infrastructure-as-code best practices, least-privilege security, and end-to-end automation.
 

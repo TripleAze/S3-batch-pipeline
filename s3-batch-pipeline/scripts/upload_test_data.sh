@@ -5,12 +5,12 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 echo "Creating test objects..."
-echo "test content 1" > test-object-1.txt
-echo "test content 2" > test-object-2.txt
+echo "test content 1" > test-object-5.txt
+echo "test content 2" > test-object-6.txt
 
 echo "Uploading to S3..."
-aws s3 cp test-object-1.txt s3://state-bucket-abu-source-2025/test-object-1.txt
-aws s3 cp test-object-2.txt s3://state-bucket-abu-source-2025/test-object-2.txt
+aws s3 cp test-object-5.txt s3://state-bucket-abu-source-2025/test-object-5.txt
+aws s3 cp test-object-6.txt s3://state-bucket-abu-source-2025/test-object-6.txt
 
 # Upload manifest from project root or current dir
 if [ -f "$PROJECT_ROOT/manifest.csv" ]; then
@@ -25,4 +25,4 @@ else
 fi
 
 echo "Upload complete!"
-rm test-object-1.txt test-object-2.txt
+rm test-object-5.txt test-object-6.txt
