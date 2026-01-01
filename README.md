@@ -1,432 +1,521 @@
-# terraform-docs
+# S3 Batch Operations Pipeline
 
-[![Build Status](https://github.com/terraform-docs/terraform-docs/workflows/ci/badge.svg)](https://github.com/terraform-docs/terraform-docs/actions) [![GoDoc](https://pkg.go.dev/badge/github.com/terraform-docs/terraform-docs)](https://pkg.go.dev/github.com/terraform-docs/terraform-docs) [![Go Report Card](https://goreportcard.com/badge/github.com/terraform-docs/terraform-docs)](https://goreportcard.com/report/github.com/terraform-docs/terraform-docs) [![Codecov Report](https://codecov.io/gh/terraform-docs/terraform-docs/branch/master/graph/badge.svg)](https://codecov.io/gh/terraform-docs/terraform-docs) [![License](https://img.shields.io/github/license/terraform-docs/terraform-docs)](https://github.com/terraform-docs/terraform-docs/blob/master/LICENSE) [![Latest release](https://img.shields.io/github/v/release/terraform-docs/terraform-docs)](https://github.com/terraform-docs/terraform-docs/releases)
+[![Infrastructure](https://img.shields.io/badge/Infrastructure-Terraform-7B42BC?logo=terraform)](https://www.terraform.io/)
+[![Configuration](https://img.shields.io/badge/Configuration-Ansible-EE0000?logo=ansible)](https://www.ansible.com/)
+[![CI/CD](https://img.shields.io/badge/CI%2FCD-Jenkins-D24939?logo=jenkins)](https://www.jenkins.io/)
+[![Cloud](https://img.shields.io/badge/Cloud-AWS-FF9900?logo=amazon-aws)](https://aws.amazon.com/)
 
-![terraform-docs-teaser](./images/terraform-docs-teaser.png)
+A production-ready, fully automated S3 Batch Operations pipeline orchestrated by Jenkins, provisioned with Terraform, and configured with Ansible. Features secure GitHub webhook integration with dynamic IP whitelisting.
 
-## What is terraform-docs
+---
 
-A utility to generate documentation from Terraform modules in various output formats.
+## 🎯 Project Overview
 
-## Installation
+This project automates large-scale S3 object operations using AWS S3 Batch Operations, triggered automatically via GitHub webhooks. It demonstrates infrastructure-as-code best practices, least-privilege security, and end-to-end automation.
 
-macOS users can install using [Homebrew]:
+### **Key Features**
+- 🚀 **Fully Automated**: Push to GitHub → Webhook → Jenkins → S3 Batch Job
+- 🔒 **Secure by Default**: Dynamic GitHub IP whitelisting, least-privilege IAM roles, explicit egress rules
+- 📦 **Infrastructure as Code**: Complete Terraform modules for reproducible deployments
+- 🔧 **Automated Configuration**: Ansible playbooks for consistent server setup
+- 📊 **Production Ready**: Comprehensive error handling, monitoring, and reporting
+- 💾 **Data Persistence**: Dedicated EBS volume for Jenkins data with automated daily snapshots
+- 🔄 **Disaster Recovery**: 7-day snapshot retention, stateless EC2 for quick recovery
 
-```bash
-brew install terraform-docs
+---
+
+## 🏗️ Architecture
+
+```mermaid
+graph TB
+    subgraph "Developer Workflow"
+        A[Git Push to ranch]
+    end
+    
+    subgraph "GitHub"
+        B[Webhook Trigger]
+    end
+    
+    subgraph "AWS Infrastructure"
+        C[Jenkins EC2<br/>13.41.158.186]
+        D[Pipeline IAM Role]
+        E[S3 Batch Operations]
+        F[Source Bucket]
+        G[Destination Bucket]
+    end
+    
+    A -->|Push Event| B
+    B -->|HTTP POST| C
+    C -->|Assume Role| D
+    D -->|Create Job| E
+    E -->|Copy Objects| F
+    F -->|To| G
+    E -->|Report| G
 ```
 
-or
+---
 
-```bash
-brew install terraform-docs/tap/terraform-docs
+## 📁 Project Structure
+
+```
+s3-batch-pipeline/
+├── modules/
+│   ├── ec2/          # Jenkins server with dynamic GitHub IP whitelisting
+│   ├── iam/          # Least-privilege roles (Jenkins, Pipeline, S3 Batch)
+│   └── s3/           # Source and destination buckets
+├── ansible/
+│   ├── playbooks/    # Jenkins installation and configuration
+│   └── roles/        # geerlingguy.jenkins role
+├── envs/
+│   └── prod.tfvars   # Production environment variables
+├── scripts/
+│   └── upload_test_data.sh  # Test data upload script
+├── Jenkinsfile       # Pipeline definition
+└── manifest.csv      # S3 Batch Operations manifest
 ```
 
-Windows users can install using [Scoop]:
+---
+
+## 🚀 Quick Start
+
+### **Prerequisites**
+- AWS Account with appropriate permissions
+- Terraform >= 1.0
+- Ansible >= 2.9
+- SSH key pair for EC2 access
+- GitHub repository
+
+### **1. Provision Infrastructure**
 
 ```bash
-scoop bucket add terraform-docs https://github.com/terraform-docs/scoop-bucket
-scoop install terraform-docs
+# Clone the repository
+git clone https://github.com/TripleAze/S3-batch-pipeline.git
+cd S3-batch-pipeline
+
+# Initialize Terraform
+terraform init
+
+# Review the plan
+terraform plan -var-file=envs/prod.tfvars
+
+# Apply infrastructure
+terraform apply -var-file=envs/prod.tfvars
 ```
 
-or [Chocolatey]:
+### **2. Configure Jenkins**
 
 ```bash
-choco install terraform-docs
+cd ansible
+
+# Install required roles
+ansible-galaxy install -r roles/requirements.yml
+
+# Run the playbook
+ansible-playbook -i inventories/prod/hosts.ini playbooks/jenkins.yml
 ```
 
-Stable binaries are also available on the [releases] page. To install, download the
-binary for your platform from "Assets" and place this into your `$PATH`:
+### **3. Set Up GitHub Webhook**
 
+1. Go to your GitHub repository → **Settings** → **Webhooks**
+2. Click **Add webhook**
+3. Configure:
+   - **Payload URL**: `http://<JENKINS_IP>:8080/github-webhook/`
+   - **Content type**: `application/json`
+   - **Events**: Just the push event
+4. Click **Add webhook**
+
+### **4. Create Jenkins Job**
+
+1. Access Jenkins at `http://<JENKINS_IP>:8080`
+2. Login with: `admin` / `MySecurePassword123`
+3. Create new **Pipeline** job named `S3BatchPipeline`
+4. Configure:
+   - **Pipeline script from SCM**: Git
+   - **Repository URL**: `https://github.com/TripleAze/S3-batch-pipeline.git`
+   - **Branch**: `*/ranch`
+   - **Script Path**: `s3-batch-pipeline/Jenkinsfile`
+   - **Build Triggers**: ✅ GitHub hook trigger for GITScm polling
+
+---
+
+## 🛠️ Troubleshooting Guide
+
+### **Problem 1: Terraform Variable Prompts**
+**Error**: `terraform plan` prompts for `ami_id`
+
+**Solution**: Always use `-var-file` flag
 ```bash
-curl -Lo ./terraform-docs.tar.gz https://github.com/terraform-docs/terraform-docs/releases/download/v0.21.0/terraform-docs-v0.21.0-$(uname)-amd64.tar.gz
-tar -xzf terraform-docs.tar.gz
-chmod +x terraform-docs
-mv terraform-docs /usr/local/bin/terraform-docs
+terraform apply -var-file=envs/prod.tfvars
 ```
 
-**NOTE:** Windows releases are in `ZIP` format.
+---
 
-The latest version can be installed using `go install` or `go get`:
+### **Problem 2: SSH Connection Timeout**
+**Error**: `Connection timed out` when accessing EC2
 
+**Root Causes**:
+1. Incorrect IP in `allowed_cidr`
+2. Outdated IP in `ansible/inventories/prod/hosts.ini`
+
+**Solution**:
 ```bash
-# go1.17+
-go install github.com/terraform-docs/terraform-docs@v0.21.0
+# Check your current IP
+curl ifconfig.me
+
+# Update prod.tfvars
+allowed_cidr = "<YOUR_IP>/32"
+
+# Update hosts.ini
+ansible_host=<NEW_EC2_IP>
+
+# Reapply Terraform
+terraform apply -var-file=envs/prod.tfvars
 ```
 
+---
+
+### **Problem 3: Ansible Role Not Found**
+**Error**: `role 'geerlingguy.jenkins' not found`
+
+**Solution**:
 ```bash
-# go1.16
-GO111MODULE="on" go get github.com/terraform-docs/terraform-docs@v0.21.0
+cd ansible
+ansible-galaxy install -r roles/requirements.yml
 ```
 
-**NOTE:** please use the latest Go to do this, minimum `go1.16` is required.
+---
 
-This will put `terraform-docs` in `$(go env GOPATH)/bin`. If you encounter the error
-`terraform-docs: command not found` after installation then you may need to either add
-that directory to your `$PATH` as shown [here] or do a manual installation by cloning
-the repo and run `make build` from the repository which will put `terraform-docs` in:
+### **Problem 4: Jenkins GPG Key Error**
+**Error**: `NO_PUBKEY 7198F4B714ABFC68`
 
-```bash
-$(go env GOPATH)/src/github.com/terraform-docs/terraform-docs/bin/$(uname | tr '[:upper:]' '[:lower:]')-amd64/terraform-docs
-```
-
-## Usage
-
-### Running the binary directly
-
-To run and generate documentation into README within a directory:
-
-```bash
-terraform-docs markdown table --output-file README.md --output-mode inject /path/to/module
-```
-
-Check [`output`] configuration for more details and examples.
-
-### Using docker
-
-terraform-docs can be run as a container by mounting a directory with `.tf`
-files in it and run the following command:
-
-```bash
-docker run --rm --volume "$(pwd):/terraform-docs" -u $(id -u) quay.io/terraform-docs/terraform-docs:0.21.0 markdown /terraform-docs
-```
-
-If `output.file` is not enabled for this module, generated output can be redirected
-back to a file:
-
-```bash
-docker run --rm --volume "$(pwd):/terraform-docs" -u $(id -u) quay.io/terraform-docs/terraform-docs:0.21.0 markdown /terraform-docs > doc.md
-```
-
-**NOTE:** Docker tag `latest` refers to _latest_ stable released version and `edge`
-refers to HEAD of `master` at any given point in time.
-
-### Using GitHub Actions
-
-To use terraform-docs GitHub Action, configure a YAML workflow file (e.g.
-`.github/workflows/documentation.yml`) with the following:
-
+**Solution**: Override the key URL in `ansible/playbooks/group_vars/all.yml`:
 ```yaml
-name: Generate terraform docs
-on:
-  - pull_request
-
-jobs:
-  docs:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        ref: ${{ github.event.pull_request.head.ref }}
-
-    - name: Render terraform docs and push changes back to PR
-      uses: terraform-docs/gh-actions@main
-      with:
-        working-dir: .
-        output-file: README.md
-        output-method: inject
-        git-push: "true"
+jenkins_repo_key_url: "https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key"
 ```
 
-Read more about [terraform-docs GitHub Action] and its configuration and
-examples.
+---
 
-### pre-commit hook
+### **Problem 5: AWS CLI Installation Failure**
+**Error**: `apt install awscli` fails or installs old version
 
-With pre-commit, you can ensure your Terraform module documentation is kept
-up-to-date each time you make a commit.
-
-First [install pre-commit] and then create or update a `.pre-commit-config.yaml`
-in the root of your Git repo with at least the following content:
-
+**Solution**: Manual AWS CLI v2 installation (already in playbook):
 ```yaml
-repos:
-  - repo: https://github.com/terraform-docs/terraform-docs
-    rev: "v0.21.0"
-    hooks:
-      - id: terraform-docs-go
-        args: ["markdown", "table", "--output-file", "README.md", "./mymodule/path"]
+- name: Download AWS CLI v2
+  get_url:
+    url: https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip
+    dest: /tmp/awscliv2.zip
+
+- name: Install AWS CLI v2
+  shell: |
+    cd /tmp && unzip -o awscliv2.zip
+    sudo ./aws/install --update
 ```
 
-Then run:
+---
 
-```bash
-pre-commit install
-pre-commit install-hooks
-```
+### **Problem 6: Jenkinsfile Not Found**
+**Error**: `Unable to find S3-batch-pipeline/Jenkinsfile`
 
-Further changes to your module's `.tf` files will cause an update to documentation
-when you make a commit.
+**Root Causes**:
+1. Case sensitivity: `S3-batch-pipeline` vs `s3-batch-pipeline`
+2. Wrong branch: `main` vs `ranch`
 
-## Configuration
+**Solution**:
+- **Script Path**: `s3-batch-pipeline/Jenkinsfile` (lowercase `s`)
+- **Branch Specifier**: `*/ranch`
 
-terraform-docs can be configured with a yaml file. The default name of this file is
-`.terraform-docs.yml` and the path order for locating it is:
+---
 
-1. root of module directory
-1. `.config/` folder at root of module directory
-1. current directory
-1. `.config/` folder at current directory
-1. `$HOME/.tfdocs.d/`
+### **Problem 7: Webhook Not Triggering**
+**Error**: Webhook delivers but build doesn't start
 
-```yaml
-formatter: "" # this is required
+**Root Causes**:
+1. Wrong webhook URL (old IP after instance replacement)
+2. Missing `triggers { githubPush() }` in Jenkinsfile
+3. Job not configured for webhook triggers
 
-version: ""
-
-header-from: main.tf
-footer-from: ""
-
-recursive:
-  enabled: false
-  path: modules
-  include-main: true
-
-sections:
-  hide: []
-  show: []
-
-content: ""
-
-output:
-  file: ""
-  mode: inject
-  template: |-
-    <!-- BEGIN_TF_DOCS -->
-    {{ .Content }}
-    <!-- END_TF_DOCS -->
-
-output-values:
-  enabled: false
-  from: ""
-
-sort:
-  enabled: true
-  by: name
-
-settings:
-  anchor: true
-  color: true
-  default: true
-  description: false
-  escape: true
-  hide-empty: false
-  html: true
-  indent: 2
-  lockfile: true
-  read-comments: true
-  required: true
-  sensitive: true
-  type: true
-```
-
-## Content Template
-
-Generated content can be customized further away with `content` in configuration.
-If the `content` is empty the default order of sections is used.
-
-Compatible formatters for customized content are `asciidoc` and `markdown`. `content`
-will be ignored for other formatters.
-
-`content` is a Go template with following additional variables:
-
-- `{{ .Header }}`
-- `{{ .Footer }}`
-- `{{ .Inputs }}`
-- `{{ .Modules }}`
-- `{{ .Outputs }}`
-- `{{ .Providers }}`
-- `{{ .Requirements }}`
-- `{{ .Resources }}`
-
-and following functions:
-
-- `{{ include "relative/path/to/file" }}`
-
-These variables are the generated output of individual sections in the selected
-formatter. For example `{{ .Inputs }}` is Markdown Table representation of _inputs_
-when formatter is set to `markdown table`.
-
-Note that sections visibility (i.e. `sections.show` and `sections.hide`) takes
-precedence over the `content`.
-
-Additionally there's also one extra special variable avaialble to the `content`:
-
-- `{{ .Module }}`
-
-As opposed to the other variables mentioned above, which are generated sections
-based on a selected formatter, the `{{ .Module }}` variable is just a `struct`
-representing a [Terraform module].
-
-````yaml
-content: |-
-  Any arbitrary text can be placed anywhere in the content
-
-  {{ .Header }}
-
-  and even in between sections
-
-  {{ .Providers }}
-
-  and they don't even need to be in the default order
-
-  {{ .Outputs }}
-
-  include any relative files
-
-  {{ include "relative/path/to/file" }}
-
-  {{ .Inputs }}
-
-  # Examples
-
-  ```hcl
-  {{ include "examples/foo/main.tf" }}
-  ```
-
-  ## Resources
-
-  {{ range .Module.Resources }}
-  - {{ .GetMode }}.{{ .Spec }} ({{ .Position.Filename }}#{{ .Position.Line }})
-  {{- end }}
-````
-
-## Build on top of terraform-docs
-
-terraform-docs primary use-case is to be utilized as a standalone binary, but
-some parts of it is also available publicly and can be imported in your project
-as a library.
-
-```go
-import (
-    "github.com/terraform-docs/terraform-docs/format"
-    "github.com/terraform-docs/terraform-docs/print"
-    "github.com/terraform-docs/terraform-docs/terraform"
-)
-
-// buildTerraformDocs for module root `path` and provided content `tmpl`.
-func buildTerraformDocs(path string, tmpl string) (string, error) {
-    config := print.DefaultConfig()
-    config.ModuleRoot = path // module root path (can be relative or absolute)
-
-    module, err := terraform.LoadWithOptions(config)
-    if err != nil {
-        return "", err
+**Solution**:
+1. Update webhook URL to current Jenkins IP
+2. Add to Jenkinsfile:
+```groovy
+pipeline {
+    triggers {
+        githubPush()
     }
+    // ... rest of pipeline
+}
+```
+3. Enable "GitHub hook trigger for GITScm polling" in job config
 
-    // Generate in Markdown Table format
-    formatter := format.NewMarkdownTable(config)
+---
 
-    if err := formatter.Generate(module); err != nil {
-        return "", err
+### **Problem 8: EC2 Instance Unresponsive**
+**Symptoms**: 
+- Ping works but SSH/HTTP timeout
+- High packet loss (85%+)
+- Connection hangs during banner exchange
+
+**Original Solution** (Not Recommended):
+```bash
+# This works but loses all Jenkins data
+terraform apply -var-file=envs/prod.tfvars -replace="module.ec2.aws_instance.jenkins"
+```
+
+**Production Solution** (Implemented):
+
+We implemented a **dedicated EBS volume for Jenkins data** (`/var/lib/jenkins`) to enable stateless EC2 instances:
+
+**Benefits**:
+- ✅ Jenkins data survives instance replacement
+- ✅ Jobs, pipelines, credentials, and build history preserved
+- ✅ Automated daily snapshots via AWS DLM (Data Lifecycle Manager)
+- ✅ 7-day snapshot retention for disaster recovery
+- ✅ Quick recovery: Stop instance → Detach volume → Attach to new instance
+
+**Implementation**:
+```hcl
+# Dedicated 20GB encrypted EBS volume
+resource "aws_ebs_volume" "jenkins_data" {
+  availability_zone = data.aws_subnet.selected.availability_zone
+  size              = 20
+  type              = "gp3"
+  encrypted         = true
+}
+
+# Automated daily snapshots
+resource "aws_dlm_lifecycle_policy" "jenkins_backup" {
+  description = "Daily snapshots of Jenkins data volume"
+  
+  schedule {
+    create_rule {
+      interval = 24
+      times    = ["03:00"]  # 3 AM UTC
     }
-
-    // // Note: if you don't intend to provide additional template for the generated
-    // // content, or the target format doesn't provide templating (e.g. json, yaml,
-    // // xml, or toml) you can use `Content()` function instead of `Render()`.
-    // // `Content()` returns all the sections combined with predefined order.
-    // return formatter.Content(), nil
-
-    return formatter.Render(tmpl)
+    
+    retain_rule {
+      count = 7  # Keep 7 daily snapshots
+    }
+  }
 }
 ```
 
-## Plugin
+**Recovery Process** (if instance becomes unresponsive):
+```bash
+# 1. Note the EBS volume ID
+terraform output
 
-Generated output can be heavily customized with [`content`], but if using that
-is not enough for your use-case, you can write your own plugin.
+# 2. Replace the instance (volume auto-detaches and re-attaches)
+terraform apply -var-file=envs/prod.tfvars -replace="module.ec2.aws_instance.jenkins"
 
-In order to install a plugin the following steps are needed:
+# 3. Jenkins data is preserved - no Ansible re-run needed!
+```
 
-- download the plugin and place it in `~/.tfdocs.d/plugins` (or `./.tfdocs.d/plugins`)
-- make sure the plugin file name is `tfdocs-format-<NAME>`
-- modify [`formatter`] of `.terraform-docs.yml` file to be `<NAME>`
 
-**Important notes:**
+---
 
-- if the plugin file name is different than the example above, terraform-docs won't
-be able to to pick it up nor register it properly
-- you can only use plugin thorough `.terraform-docs.yml` file and it cannot be used
-with CLI arguments
+### **Problem 9: Security Group Duplicate Rule**
+**Error**: `InvalidPermission.Duplicate`
 
-To create a new plugin create a new repository called `tfdocs-format-<NAME>` with
-following `main.go`:
+**Root Cause**: Conflicting egress rule with default SG behavior
 
-```go
-package main
-
-import (
-    _ "embed" //nolint
-
-    "github.com/terraform-docs/terraform-docs/plugin"
-    "github.com/terraform-docs/terraform-docs/print"
-    "github.com/terraform-docs/terraform-docs/template"
-    "github.com/terraform-docs/terraform-docs/terraform"
-)
-
-func main() {
-    plugin.Serve(&plugin.ServeOpts{
-        Name:    "<NAME>",
-        Version: "0.1.0",
-        Printer: printerFunc,
-    })
-}
-
-//go:embed sections.tmpl
-var tplCustom []byte
-
-// printerFunc the function being executed by the plugin client.
-func printerFunc(config *print.Config, module *terraform.Module) (string, error) {
-    tpl := template.New(config,
-        &template.Item{Name: "custom", Text: string(tplCustom)},
-    )
-
-    rendered, err := tpl.Render("custom", module)
-    if err != nil {
-        return "", err
-    }
-
-    return rendered, nil
+**Solution**: Remove explicit egress rule (AWS creates default):
+```hcl
+# DELETE THIS:
+resource "aws_vpc_security_group_egress_rule" "allow_all_outbound" {
+  security_group_id = aws_security_group.jenkins_sg.id
+  ip_protocol       = "-1"
+  cidr_ipv4         = "0.0.0.0/0"
 }
 ```
 
-Please refer to [tfdocs-format-template] for more details. You can create a new
-repository from it by clicking on `Use this template` button.
+---
 
-## Documentation
+### **Problem 10: GitHub IP Whitelisting**
+**Challenge**: How to allow GitHub webhooks without opening port 8080 to the internet?
 
-- **Users**
-  - Read the [User Guide] to learn how to use terraform-docs
-  - Read the [Formats Guide] to learn about different output formats of terraform-docs
-  - Refer to [Config File Reference] for all the available configuration options
-- **Developers**
-  - Read [Contributing Guide] before submitting a pull request
+**Solution**: Dynamic IP whitelisting using Terraform `http` provider:
+```hcl
+data "http" "github_meta" {
+  url = "https://api.github.com/meta"
+  request_headers = {
+    Accept = "application/json"
+  }
+}
 
-Visit [our website] for all documentation.
+locals {
+  github_hooks_cidrs = jsondecode(data.http.github_meta.response_body).hooks
+  github_hooks_ipv4 = [for cidr in local.github_hooks_cidrs : cidr if !can(regex(":", cidr))]
+}
 
-## Community
+resource "aws_vpc_security_group_ingress_rule" "github_webhooks" {
+  for_each          = toset(local.github_hooks_ipv4)
+  security_group_id = aws_security_group.jenkins_sg.id
+  from_port         = 8080
+  to_port           = 8080
+  ip_protocol       = "tcp"
+  cidr_ipv4         = each.value
+  description       = "GitHub Webhook"
+}
+```
 
-- Discuss terraform-docs on [Slack]
+---
+
+## 🏭 Production Improvements
+
+This project implements several production-grade patterns for reliability and disaster recovery:
+
+### **1. Stateless EC2 with Persistent EBS Volume**
+
+**Pattern**: Separate compute (EC2) from state (EBS)
+
+**Implementation**:
+- Dedicated 20GB encrypted gp3 EBS volume for `/var/lib/jenkins`
+- Auto-formatted and mounted via user_data script
+- Survives instance replacement
+
+**Benefits**:
+- Zero data loss during instance replacement
+- Quick recovery from instance failures
+- Simplified disaster recovery
+
+### **2. Automated Backup Strategy**
+
+**Pattern**: AWS Data Lifecycle Manager (DLM) for snapshots
+
+**Implementation**:
+```
+Daily snapshots at 3 AM UTC
+Retention: 7 days (rolling window)
+Automatic cleanup of old snapshots
+```
+
+**Cost**: ~$0.05/GB/month for snapshots (7 snapshots × 20GB = ~$7/month)
+
+### **3. Explicit Egress Rules**
+
+**Pattern**: Principle of least privilege for outbound traffic
+
+**Implementation**:
+```hcl
+HTTPS (443) → Package updates, AWS APIs
+HTTP (80)   → Package updates
+DNS (53)    → UDP and TCP for name resolution
+NTP (123)   → Time synchronization
+```
+
+**Benefits**:
+- Prevents data exfiltration
+- Limits attack surface
+- Compliance with security frameworks
+
+### **4. Disaster Recovery Procedure**
+
+**Scenario**: EC2 instance becomes unresponsive
+
+**Recovery Steps**:
+1. Terraform automatically detaches EBS volume
+2. Destroys unhealthy instance
+3. Creates new instance
+4. Re-attaches EBS volume with all Jenkins data
+5. Jenkins starts with all jobs, credentials, and history intact
+
+**RTO** (Recovery Time Objective): ~5 minutes  
+**RPO** (Recovery Point Objective): Last snapshot (max 24 hours)
+
+---
+
+## 🔐 Security Best Practices
+
+### **Implemented Security Measures**
+
+1. **Least-Privilege IAM Roles**
+   - Separate roles for Jenkins EC2, Pipeline, and S3 Batch Operations
+   - No hardcoded credentials
+   - STS assume-role for temporary credentials
+
+2. **Network Security**
+   - SSH restricted to admin IP only
+   - Jenkins UI restricted to admin IP + GitHub IPs
+   - Dynamic GitHub IP whitelisting (auto-updates)
+
+3. **Secrets Management**
+   - AWS credentials via IAM instance profile
+   - Jenkins credentials stored in encrypted credential store
+   - No secrets in code or version control
+
+4. **Infrastructure as Code**
+   - `.tfvars` files in `.gitignore`
+   - Sensitive outputs marked as `sensitive = true`
+   - State file stored securely (not in repo)
+
+---
+
+## 📊 Monitoring & Logging
+
+### **Jenkins Build Logs**
+- Access via Jenkins UI → Job → Console Output
+- Shows STS assume-role, S3 Batch job creation, and status monitoring
+
+### **S3 Batch Operations Reports**
+- Generated in destination bucket under `reports/` prefix
+- CSV format with per-object status
+- Includes success/failure counts and error details
+
+### **GitHub Webhook Deliveries**
+- View in GitHub → Settings → Webhooks → Recent Deliveries
+- Shows request/response for each webhook event
+- Useful for debugging webhook issues
+
+---
+
+## Lessons Learned
+
+### **1. Instance Recovery Strategy**
+When an EC2 instance becomes unresponsive, Terraform's `-replace` flag provides a clean recovery path while preserving other infrastructure.
+
+### **2. Dynamic IP Whitelisting**
+Using Terraform's `http` provider to fetch GitHub's current IP ranges ensures webhooks work without compromising security.
+
+### **3. Idempotent Configuration**
+Ansible playbooks designed for idempotency can be safely re-run after infrastructure changes, simplifying recovery.
+
+### **4. Case Sensitivity Matters**
+Linux filesystems are case-sensitive. `S3-batch-pipeline` ≠ `s3-batch-pipeline` in repository paths.
+
+### **5. Branch Name Awareness**
+Always verify the default branch name (`ranch` vs `main`) when configuring webhooks and Jenkins jobs.
+
+---
+
+## Additional Resources
+
+- [AWS S3 Batch Operations Documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/batch-ops.html)
+- [Terraform AWS Provider](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
+- [Ansible Jenkins Role](https://github.com/geerlingguy/ansible-role-jenkins)
+- [GitHub Webhooks Guide](https://docs.github.com/en/webhooks)
+- [Jenkins Pipeline Syntax](https://www.jenkins.io/doc/book/pipeline/syntax/)
+
+---
 
 ## License
 
-MIT License - Copyright (c) 2021 The terraform-docs Authors.
+MIT License - See [LICENSE](LICENSE) file for details
 
-[Chocolatey]: https://www.chocolatey.org
-[Config File Reference]: https://terraform-docs.io/user-guide/configuration/
-[`content`]: https://terraform-docs.io/user-guide/configuration/content/
-[Contributing Guide]: CONTRIBUTING.md
-[Formats Guide]: https://terraform-docs.io/reference/terraform-docs/
-[`formatter`]: https://terraform-docs.io/user-guide/configuration/formatter/
-[here]: https://golang.org/doc/code.html#GOPATH
-[Homebrew]: https://brew.sh
-[install pre-commit]: https://pre-commit.com/#install
-[`output`]: https://terraform-docs.io/user-guide/configuration/output/
-[releases]: https://github.com/terraform-docs/terraform-docs/releases
-[Scoop]: https://scoop.sh/
-[Slack]: https://slack.terraform-docs.io/
-[terraform-docs GitHub Action]: https://github.com/terraform-docs/gh-actions
-[Terraform module]: https://pkg.go.dev/github.com/terraform-docs/terraform-docs/terraform#Module
-[tfdocs-format-template]: https://github.com/terraform-docs/tfdocs-format-template
-[our website]: https://terraform-docs.io/
-[User Guide]: https://terraform-docs.io/user-guide/introduction/
+---
+
+## Author
+
+**TripleAze**
+- GitHub: [@TripleAze](https://github.com/TripleAze)
+
+---
+
+## Acknowledgments
+
+- [Jeff Geerling](https://github.com/geerlingguy) for the excellent Jenkins Ansible role
+- AWS for comprehensive S3 Batch Operations documentation
+- The Terraform and Ansible communities for extensive examples and support
+
+---
+
+**⭐ If this project helped you, please consider giving it a star!**
